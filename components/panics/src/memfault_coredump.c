@@ -419,6 +419,7 @@ static bool prv_write_coredump_sections(const sMemfaultCoredumpSaveInfo *save_in
     }
   }
 
+  info.size = HPY_MEMFAULT_PART_SIZE;
   // erase storage provided we aren't just computing the size
   if (!compute_size_only && !memfault_platform_coredump_storage_erase(0, info.size)) {
     return false;

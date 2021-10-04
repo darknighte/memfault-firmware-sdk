@@ -31,6 +31,7 @@
 #include "memfault/core/debug_log.h"
 #include "memfault/core/math.h"
 #include "memfault/panics/platform/coredump.h"
+#include "flash_partitions.h"
 
 typedef enum {
   kMemfaultCoredumpStorageTestOp_Prepare = 0,
@@ -87,6 +88,7 @@ static bool prv_verify_erased(uint8_t byte) {
 bool memfault_coredump_storage_debug_test_begin(void) {
   sMfltCoredumpStorageInfo info = { 0 };
   memfault_platform_coredump_storage_get_info(&info);
+  info.size = HPY_MEMFAULT_PART_SIZE;
   if (info.size == 0) {
     prv_record_failure(kMemfaultCoredumpStorageTestOp_GetInfo,
                        kMemfaultCoredumpStorageResult_PlatformApiFail,
