@@ -18,6 +18,9 @@
 #include "memfault/core/math.h"
 #include "memfault/core/platform/device_info.h"
 #include "memfault/panics/platform/coredump.h"
+#include "memfault/ports/watchdog.h"
+
+#include "flash_partitions.h"
 
 #define MEMFAULT_COREDUMP_MAGIC 0x45524f43
 
@@ -421,6 +424,14 @@ static bool prv_write_coredump_sections(const sMemfaultCoredumpSaveInfo *save_in
     return false;
   }
 
+  // Erase takes a while.
+  //
+  // Unconditionally feed the watchdog. If it's not in use this is benign. If
+  // it is in use this will give us another 2.6s to complete the coredump save.
+  if (memfault_software_watchdog_feed() != 0) {
+    return false;
+  }
+
   sMfltCoredumpWriteCtx write_ctx = {
     // We will write the header last as a way to mark validity
     // so advance the offset past it to start
@@ -458,10 +469,16 @@ static bool prv_write_coredump_sections(const sMemfaultCoredumpSaveInfo *save_in
   size_t num_sdk_regions = 0;
   const sMfltCoredumpRegion *sdk_regions = memfault_coredump_get_sdk_regions(&num_sdk_regions);
 
-  const bool write_completed =
+  bool write_completed =
       prv_write_regions(&write_ctx, arch_regions, num_arch_regions) &&
-      prv_write_regions(&write_ctx, sdk_regions, num_sdk_regions) &&
-      prv_write_regions(&write_ctx, regions, num_regions);
+      prv_write_regions(&write_ctx, sdk_regions, num_sdk_regions);
+  // Unconditionally feed the watchdog. If it's not in use this is benign. If
+  // it is in use this will give us another 2.6s to complete the coredump save.
+  if (memfault_software_watchdog_feed() != 0) {
+    return false;
+  }
+
+  write_completed &= prv_write_regions(&write_ctx, regions, num_regions);
 
   if (!write_completed && write_ctx.write_error) {
     return false;
