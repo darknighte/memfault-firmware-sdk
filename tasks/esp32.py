@@ -8,11 +8,9 @@ import platform
 import shutil
 import sys
 from glob import glob
-from sys import executable as PYTHON
-from sys import exit
 
-from pyftdi.usbtools import UsbTools
 from invoke import Collection, task
+from pyftdi.usbtools import UsbTools
 
 from .gdb import gdb_build_cmd
 
@@ -33,7 +31,7 @@ def _run_idf_script(ctx, *args, **kwargs):
     with ctx.cd(ESP32_TEST_APP_ROOT):
         ctx.run(
             "{idf} {args}".format(idf=ESP32_IDF_SCRIPT, args=" ".join(args)),
-            env={"IDF_PATH": ESP32_IDF_ROOT, "PYTHON": PYTHON},
+            env={"IDF_PATH": ESP32_IDF_ROOT, "PYTHON": sys.executable},
             **kwargs,
         )
 
@@ -63,7 +61,7 @@ def _esp32_guess_console_port():
         print(
             "Cannot find ESP32 console /dev/... nor ftdi:// path, please specify it manually using --port"
         )
-        exit(1)
+        sys.exit(1)
 
     port = _esp32_find_console_port()
     print("No --port specified, using console port {port}".format(port=port))
@@ -115,7 +113,7 @@ def esp32_console(ctx, port=None):
         port = _esp32_guess_console_port()
     # For now, just use miniterm, idf_monitor.py doesn't play nice with pyftdi for some reason :(
     # _run_idf_script(ctx, '-p {port}'.format(port=port), 'monitor', pty=True)
-    ctx.run("miniterm.py --raw {port} 115200".format(port=port), pty=True)
+    ctx.run("miniterm.py --eol CR --raw {port} 115200".format(port=port), pty=True)
 
 
 @task
@@ -132,7 +130,7 @@ def esp32_openocd(ctx):
         print(
             "Download the openocd-esp32 binaries here: https://github.com/espressif/openocd-esp32/releases"
         )
-        exit(-1)
+        sys.exit(-1)
     with ctx.cd(os.environ["ESP32_OPENOCD"]):
         ctx.run(
             "bin/openocd -s share/openocd/scripts "

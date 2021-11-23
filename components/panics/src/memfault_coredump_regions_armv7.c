@@ -27,6 +27,7 @@ MEMFAULT_STATIC_ASSERT((MEMFAULT_NVIC_INTERRUPTS_TO_COLLECT) <= 512, "Exceeded m
 
 MEMFAULT_STATIC_ASSERT((MEMFAULT_MPU_REGIONS_TO_COLLECT) <= 16, "Exceeded max possible size");
 
+#if MEMFAULT_COLLECT_FAULT_REGS
 // Subset of ARMv7-M "System Control and ID blocks" related to fault status
 // On some ports some of these registers may need to be pre-cached before
 // the OS consumes them. For simplicity if any need pre-caching then we
@@ -40,6 +41,8 @@ typedef MEMFAULT_PACKED_STRUCT {
   uint32_t BFAR;
   uint32_t AFSR;
 } sMfltFaultRegs;
+
+#endif /* MEMFAULT_COLLECT_FAULT_REGS */
 
 typedef MEMFAULT_PACKED_STRUCT {
   uint32_t ICTR;
@@ -93,7 +96,11 @@ typedef MEMFAULT_PACKED_STRUCT {
 #endif /* MEMFAULT_COLLECT_MPU_STATE */
 
 
-#if MEMFAULT_CACHE_FAULT_REGS
+#if !MEMFAULT_COLLECT_FAULT_REGS
+#define FAULT_REG_REGION_TYPE  kMfltCoredumpRegionType_CachedMemory
+#define FAULT_REG_REGION_START (0)
+#define FAULT_REG_REGION_SIZE  (0)
+#elif MEMFAULT_CACHE_FAULT_REGS
 #define FAULT_REG_REGION_TYPE  kMfltCoredumpRegionType_CachedMemory
 #define FAULT_REG_REGION_START ((void*)&s_cached_fault_regs)
 #define FAULT_REG_REGION_SIZE  (sizeof(s_cached_fault_regs))
@@ -140,14 +147,14 @@ const sMfltCoredumpRegion *memfault_coredump_get_arch_regions(size_t *num_region
   if (s_mflt_mpu_regs.TYPE) {
     // MPU is implemented, get the region count but don't
     // exceed the caller's limit if smaller than the HW supports.
-    size_t num_regions = (s_mflt_mpu_regs.TYPE >> 8) & 0xFF;
-    num_regions = MEMFAULT_MIN(num_regions, MEMFAULT_ARRAY_SIZE(s_mflt_mpu_regs.pair));
+    size_t num_mpu_regions = (s_mflt_mpu_regs.TYPE >> 8) & 0xFF;
+    num_mpu_regions = MEMFAULT_MIN(num_mpu_regions, MEMFAULT_ARRAY_SIZE(s_mflt_mpu_regs.pair));
 
     // Save CTRL but skip RNR as it has no debug value.
     s_mflt_mpu_regs.CTRL = *(uint32_t volatile *) 0xE000ED94;
 
     // Unroll the paged register pairs into our array representation by select-and-read.
-    for (size_t region = 0; region < num_regions; ++region) {
+    for (size_t region = 0; region < num_mpu_regions; ++region) {
       *(uint32_t volatile *) 0xE000ED98 = region;
       s_mflt_mpu_regs.pair[region].RBAR = *(uint32_t volatile *) 0xE000ED9C;
       s_mflt_mpu_regs.pair[region].RASR = *(uint32_t volatile *) 0xE000EDA0;
@@ -155,7 +162,7 @@ const sMfltCoredumpRegion *memfault_coredump_get_arch_regions(size_t *num_region
   }
 #endif /* MEMFAULT_COLLECT_MPU_STATE */
 
-  static sMfltCoredumpRegion s_coredump_regions[] = {
+  static const sMfltCoredumpRegion s_coredump_regions[] = {
     {
       .type = FAULT_REG_REGION_TYPE,
       .region_start = (void *)FAULT_REG_REGION_START,

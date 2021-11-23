@@ -142,6 +142,10 @@ bool memfault_cbor_encode_unsigned_integer(
   return prv_encode_unsigned_integer(encoder, kCborMajorType_UnsignedInteger, value);
 }
 
+bool memfault_cbor_join(sMemfaultCborEncoder *encoder, const void *cbor_data, size_t cbor_data_len) {
+  return prv_add_to_result_buffer(encoder, cbor_data, cbor_data_len);
+}
+
 bool memfault_cbor_encode_signed_integer(sMemfaultCborEncoder *encoder, int32_t value) {
   // Logic derived from "Appendix C Pseudocode" of RFC 7049
   int32_t ui = (value >> 31);
@@ -157,6 +161,10 @@ bool memfault_cbor_encode_byte_string(sMemfaultCborEncoder *encoder, const void 
           prv_add_to_result_buffer(encoder, buf, buf_len));
 }
 
+bool memfault_cbor_encode_byte_string_begin(sMemfaultCborEncoder *encoder, size_t buf_len) {
+  return prv_encode_unsigned_integer(encoder, kCborMajorType_ByteString, buf_len);
+}
+
 bool memfault_cbor_encode_string(sMemfaultCborEncoder *encoder, const char *str) {
   const size_t str_len = strlen(str);
   return (prv_encode_unsigned_integer(encoder, kCborMajorType_TextString,  str_len) &&
@@ -165,10 +173,6 @@ bool memfault_cbor_encode_string(sMemfaultCborEncoder *encoder, const char *str)
 
 bool memfault_cbor_encode_string_begin(sMemfaultCborEncoder *encoder, size_t str_len) {
   return prv_encode_unsigned_integer(encoder, kCborMajorType_TextString,  str_len);
-}
-
-bool memfault_cbor_encode_string_add(sMemfaultCborEncoder *encoder, const char *str, size_t len) {
-  return prv_add_to_result_buffer(encoder, str, len);
 }
 
 bool memfault_cbor_encode_dictionary_begin(

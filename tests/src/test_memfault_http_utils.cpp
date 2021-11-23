@@ -4,6 +4,7 @@
 #include "CppUTestExt/MockSupport.h"
 
 extern "C" {
+  #include <limits.h>
   #include <stdbool.h>
   #include <stddef.h>
   #include <string.h>
@@ -352,7 +353,7 @@ TEST(MfltHttpClientUtils, Test_HttpResponseUnexpectedlyLongFirstLine) {
       "\r\n"
       "Accepted"; // Body, 8 bytes
 
-    prv_expect_parse_failure(rsp, strlen(rsp), 
+    prv_expect_parse_failure(rsp, strlen(rsp),
                              MfltHttpParseStatus_HeaderTooLongError);
 }
 
@@ -382,6 +383,13 @@ TEST(MfltHttpClientUtils, Test_MfltResponseBadStatusCode) {
 
 TEST(MfltHttpClientUtils, Test_MfltResponseShortStatusCode) {
   const static char *rsp = "HTTP/1.1 22 Accepted\r\n";
+  prv_expect_parse_failure(rsp, strlen(rsp),
+                           MfltHttpParseStatus_ParseStatusLineError);
+}
+
+TEST(MfltHttpClientUtils, Test_MfltResponseOverLongStatusCode) {
+  LONGS_EQUAL(2147483647, INT_MAX);  // sanity check
+  const static char *rsp = "HTTP/1.1 2147483648\r\n";
   prv_expect_parse_failure(rsp, strlen(rsp),
                            MfltHttpParseStatus_ParseStatusLineError);
 }
@@ -417,16 +425,21 @@ TEST(MfltHttpClientUtils, Test_MfltResponseShort) {
 }
 
 TEST(MfltHttpClientUtils, Test_MfltResponseBadContentLength) {
-  const static char *rsp =
-      "HTTP/1.1 202 Accepted\r\n"
-      "Content-Length:1a\r\n\r\n";;
-  prv_expect_parse_failure(rsp, strlen(rsp), MfltHttpParseStatus_ParseHeaderError);
+  const static char *rsp_non_base_10_digit = "HTTP/1.1 202 Accepted\r\n"
+                                             "Content-Length:1a\r\n\r\n";
+  prv_expect_parse_failure(rsp_non_base_10_digit, strlen(rsp_non_base_10_digit),
+                           MfltHttpParseStatus_ParseHeaderError);
+
+  const static char *rsp_value_too_large = "HTTP/1.1 202 Accepted\r\n"
+                                           "Content-Length:2147483648\r\n\r\n";
+  prv_expect_parse_failure(rsp_value_too_large, strlen(rsp_value_too_large),
+                           MfltHttpParseStatus_ParseHeaderError);
 }
 
 TEST(MfltHttpClientUtils, Test_MfltResponseNoColonSeparator) {
   const static char *rsp =
       "HTTP/1.1 202 Accepted\r\n"
-      "Content-Length&10\r\n\r\n";;
+      "Content-Length&10\r\n\r\n";
   prv_expect_parse_failure(rsp, strlen(rsp), MfltHttpParseStatus_ParseHeaderError);
 }
 

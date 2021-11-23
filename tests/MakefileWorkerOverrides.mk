@@ -3,12 +3,14 @@
 #
 # For osx, the brew path will look something like /usr/local/Cellar/cpputest/3.8
 CPPUTEST_HOME ?= /usr
-TARGET_PLATFORM ?= x86_64-linux-gnu
+TARGET_PLATFORM ?= lib/x86_64-linux-gnu
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 CURRENT_DIR := $(dir $(MKFILE_PATH))
 
-LD_LIBRARIES = -L$(CPPUTEST_HOME)/$(TARGET_PLATFORM)lib -lCppUTest -lCppUTestExt
+$(info Expected CppUTest Location: $(CPPUTEST_HOME)/$(TARGET_PLATFORM))
+
+LD_LIBRARIES = -L$(CPPUTEST_HOME)/$(TARGET_PLATFORM) -lCppUTest -lCppUTestExt
 
 TEST_SRC_FILES += \
   $(MFLT_TEST_COMMON_SRC_DIR)/AllTests.cpp
@@ -26,8 +28,16 @@ CPPUTEST_CPPFLAGS += $(MEMFAULT_EXTRA_INC_PATHS) \
 # Clang defaults to c++98 but all modern cpp compilers implement most of the features (such as
 # variadic macros) introduced in c99 that were later added as part of the c++11 specification
 # so we pin the unit tests cpp standard to c++11.
-CPPUTEST_CXXFLAGS += \
-  -std=c++11
+#
+# memfault/core/compact_log_helpers.h makes use of the gnu expansion rules for ,## __VA_ARGS__. We
+# explicitly opt in unit tests that need this feature with different gnu standard args for these
+# tests
+ifneq (,$(findstring MEMFAULT_COMPACT_LOG_ENABLE=1=,$(CPPUTEST_CFLAGS)))
+CPPUTEST_CXXFLAGS += -std=c++11
+else
+CPPUTEST_CFLAGS += -std=gnu11
+CPPUTEST_CXXFLAGS += -std=gnu++11
+endif
 
 export SILENCE ?= @
 
@@ -78,24 +88,32 @@ COMPILER_SPECIFIC_WARNINGS += \
   -Wno-vla-extension \
   -Wno-zero-as-null-pointer-constant \
   -Wno-unknown-warning-option \
-  -Wno-poison-system-directories
+  -Wno-poison-system-directories \
+  -Wno-suggest-override \
+
 else
 
 # GCC-only warnings
 COMPILER_SPECIFIC_WARNINGS += \
   -Wformat-signedness
 
+# Enable sanitizers, and crash on error (don't attempt to recover sanely) so the
+# test fails on sanitizer violation
+CPPUTEST_WARNINGFLAGS += \
+  -fsanitize=address \
+  -fsanitize=undefined \
+  -fno-sanitize-recover=all
+
+CPPUTEST_LDFLAGS += \
+  -fsanitize=address \
+  -fsanitize=undefined \
+  -fno-sanitize-recover=all
+
 endif
 
 CPPUTEST_WARNINGFLAGS += $(COMPILER_SPECIFIC_WARNINGS)
-CPPUTEST_WARNINGFLAGS += \
-  -Werror \
-  -fsanitize=address
 
 export CPPUTEST_WARNINGFLAGS
-
-CPPUTEST_LDFLAGS += \
-  -fsanitize=address
 
 export CPPUTEST_LDFLAGS
 

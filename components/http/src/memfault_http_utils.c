@@ -8,6 +8,7 @@
 
 #include "memfault/http/utils.h"
 
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -245,11 +246,23 @@ static int prv_str_to_dec(const char *buf, size_t buf_len, int *value_out) {
     }
 
     int digit = c - '0';
+
+    // there's no limit to the size of a Content-Length value per specification:
+    // https://datatracker.ietf.org/doc/html/rfc7230#section-3.3.2
+    //
+    // status code is required to be 3 digits per:
+    // https://datatracker.ietf.org/doc/html/rfc7230#section-3.1.2
+    //
+    // any value that we can't fit in our variable is an error
+    if ((INT_MAX / 10) < (result + digit)) {
+      return -1; // result will overflow
+    }
+
     result = (result * 10) + digit;
   }
 
   *value_out = result;
-  return idx;
+  return (int)idx;
 }
 
 //! @return true if parsing was successful, false if a parse error occurred
@@ -443,7 +456,7 @@ static bool prv_find_first_occurrence(const char *line, size_t total_len,
 
 static bool prv_find_last_occurrence(const char *line, size_t total_len,
                                     char c, size_t *offset_out) {
-  for (int offset = total_len - 1; offset >= 0; offset--) {
+  for (int offset = (int)total_len - 1; offset >= 0; offset--) {
     if (line[offset] == c) {
       *offset_out = (size_t)offset;
       return true;

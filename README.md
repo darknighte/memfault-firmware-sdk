@@ -11,9 +11,6 @@ integration guides
 
 # Getting Started
 
-To see a demo of the type of data which can be collected before writing _any_
-code, check out https://try.memfault.com.
-
 To start integrating in your platform today,
 [create a Memfault cloud account](https://mflt.io/signup).
 
@@ -140,15 +137,8 @@ to do is:
 #### Running the unit tests
 
 The SDK code is covered extensively by unit tests. They can be found in the
-`tests/` folder. If you'd like to run them yourself, make sure you have
-[CPPUTest](https://cpputest.github.io) installed. When using macOS, you can
-install it from homebrew by running `brew install cpputest`.
-
-To build and run the unit tests, just run
-
-```bash
-$ invoke test
-```
+`tests/` folder. If you'd like to run them yourself, check out the instructions
+in [tests/README.md](tests/README.md).
 
 To learn more about unit testing best practices for firmware development, check
 out
@@ -166,7 +156,7 @@ the top for build & test coverage status of the `master` branch.
     the device (see "Device information" in `components/core/README.md`) match
     the software type and software version that was entered when creating the
     Software Version and symbol artifact online.
-    [More information on creating Software Versions and uploading symbols can be found here](https://mflt.io/2LGUDoA).
+    [More information on Build Ids and uploading Symbol Files can be found here](https://mflt.io/symbol-file-build-ids).
 
 - I'm getting error XYZ, what to do now?
 

@@ -55,6 +55,25 @@ extern "C" {
 #define MEMFAULT_EVENT_INCLUDE_DEVICE_SERIAL 0
 #endif
 
+//! Controls whether or not the Build Id is encoded in events
+//!
+//! The Build Id can be used by Memfault to reliably find the corresponding
+//! symbol file to process the event. When disabled, the software version & type
+//! are used instead to find the symbol file.
+#ifndef MEMFAULT_EVENT_INCLUDE_BUILD_ID
+#define MEMFAULT_EVENT_INCLUDE_BUILD_ID 1
+#endif
+
+//! Controls the truncation of the Build Id that is encoded in events
+//!
+//! The full Build Id hash is 20 bytes, but is truncated by default to save space. The
+//! default truncation to 6 bytes (48 bits) has a 0.1% chance of collisions given
+//! 7.5 * 10 ^ 5 (750,000) Build Ids.
+//! See https://en.wikipedia.org/wiki/Birthday_problem#Probability_table
+#ifndef MEMFAULT_EVENT_INCLUDED_BUILD_ID_SIZE_BYTES
+#define MEMFAULT_EVENT_INCLUDED_BUILD_ID_SIZE_BYTES 6
+#endif
+
 //! Controls whether or not run length encoding (RLE) is used when packetizing
 //! data
 //!
@@ -75,8 +94,15 @@ extern "C" {
 #define MEMFAULT_LOG_DATA_SOURCE_ENABLED 1
 #endif
 
-// Shouldn't typically be needed but allows for persisting of MEMFAULT_LOG_*'s
-// to be disabled via a CFLAG: CFLAGS += -DMEMFAULT_SDK_LOG_SAVE_DISABLE=1
+//! Maximum length a log record can occupy
+//!
+//! Structs holding this log may be allocated on the stack so care should be taken
+//! to make the size is not to large to blow through the allocated space for the stack.
+#ifndef MEMFAULT_LOG_MAX_LINE_SAVE_LEN
+#define MEMFAULT_LOG_MAX_LINE_SAVE_LEN 128
+#endif
+
+//! Control whether or automatic persisting of MEMFAULT_LOG_*'s is enabled
 #ifndef MEMFAULT_SDK_LOG_SAVE_DISABLE
 #define MEMFAULT_SDK_LOG_SAVE_DISABLE 0
 #endif
@@ -142,6 +168,32 @@ extern "C" {
 #define MEMFAULT_COREDUMP_COLLECT_LOG_REGIONS 0
 #endif
 
+//! When the FreeRTOS port is being used, controls whether or not heap
+//! allocation tracking is enabled.
+//! Note: When using this feature, MEMFAULT_COREDUMP_HEAP_STATS_LOCK_ENABLE 0
+//! is also required
+#ifndef MEMFAULT_FREERTOS_PORT_HEAP_STATS_ENABLE
+#define MEMFAULT_FREERTOS_PORT_HEAP_STATS_ENABLE 0
+#endif
+
+//! Enable this flag to collect the heap stats information on coredump
+#ifndef MEMFAULT_COREDUMP_COLLECT_HEAP_STATS
+#define MEMFAULT_COREDUMP_COLLECT_HEAP_STATS 0
+#endif
+
+//! Max number of recent outstanding heap allocations to track.
+//! oldest tracked allocations are expired (by allocation order)
+#ifndef MEMFAULT_HEAP_STATS_MAX_COUNT
+#define MEMFAULT_HEAP_STATS_MAX_COUNT 32
+#endif
+
+//! Controls whether or not memfault_lock() will be used in the heap stats module.  If the
+//! allocation implementation in use already enables locks of it's own (i.e FreeRTOS heap_*.c
+//! implementations), the recommendation is to disable memfault locking
+#ifndef MEMFAULT_COREDUMP_HEAP_STATS_LOCK_ENABLE
+#define MEMFAULT_COREDUMP_HEAP_STATS_LOCK_ENABLE 1
+#endif
+
 #ifndef MEMFAULT_TRACE_REASON_USER_DEFS_FILE
 #define MEMFAULT_TRACE_REASON_USER_DEFS_FILE \
   "memfault_trace_reason_user_config.def"
@@ -159,6 +211,15 @@ extern "C" {
 //! The maximum size allocated for a trace event log
 #ifndef MEMFAULT_TRACE_EVENT_MAX_LOG_LEN
 #define MEMFAULT_TRACE_EVENT_MAX_LOG_LEN 80
+#endif
+
+//! Enables use of "compact" logs.
+//!
+//! Compact logs convert format strings to an integer index at compile time and serialize an "id"
+//! and format arguments on the device. The Memfault cloud will decode the log and format the full
+//! log greatly reducing the storage and overhead on the device side.
+#ifndef MEMFAULT_COMPACT_LOG_ENABLE
+#define MEMFAULT_COMPACT_LOG_ENABLE 0
 #endif
 
 //
@@ -205,6 +266,14 @@ extern "C" {
 // needed for coredump storage.
 #ifndef MEMFAULT_NVIC_INTERRUPTS_TO_COLLECT
 #define MEMFAULT_NVIC_INTERRUPTS_TO_COLLECT 32
+#endif
+
+// Enables the collection of fault registers information
+//
+// When fault registers are collected, an analysis will be presented on the
+// "issues" page of the Memfault UI.
+#ifndef MEMFAULT_COLLECT_FAULT_REGS
+#define MEMFAULT_COLLECT_FAULT_REGS 1
 #endif
 
 // ARMv7-M can support an IMPLEMENTATION DEFINED number of MPU regions if the MPU
@@ -289,6 +358,26 @@ extern "C" {
 
 #ifndef MEMFAULT_HTTP_APIS_DEFAULT_PORT
 #define MEMFAULT_HTTP_APIS_DEFAULT_PORT (443)
+#endif
+
+#ifndef MEMFAULT_HTTP_APIS_DEFAULT_SCHEME
+  #if (MEMFAULT_HTTP_APIS_DEFAULT_PORT == 80)
+    #define MEMFAULT_HTTP_APIS_DEFAULT_SCHEME "http"
+  #else
+    #define MEMFAULT_HTTP_APIS_DEFAULT_SCHEME "https"
+  #endif
+#endif
+
+//
+// Util Configuration Options
+//
+
+// Enables the use of a (512 bytes) lookup table for CRC16 computation to improve performance
+//
+// For extremely constrained environments where a small amount of data is being sent anyway the
+// lookup table can be disabled to save ~500 bytes of flash space
+#ifndef MEMFAULT_CRC16_LOOKUP_TABLE_ENABLE
+#define MEMFAULT_CRC16_LOOKUP_TABLE_ENABLE 1
 #endif
 
 //

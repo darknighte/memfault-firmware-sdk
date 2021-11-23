@@ -14,12 +14,12 @@ from unittest.mock import ANY, MagicMock
 
 import pytest
 
-script_dir = os.path.dirname(os.path.realpath(__file__))
-root_dir = os.path.dirname(os.path.dirname(script_dir))
-sys.path.insert(0, root_dir)
+tests_dir = os.path.dirname(os.path.realpath(__file__))
+scripts_dir = os.path.dirname(tests_dir)
+sys.path.insert(0, scripts_dir)
 
 
-@pytest.fixture
+@pytest.fixture()
 def gdb_base_fixture():
     gdb = MagicMock()
     gdb.Command = MagicMock
@@ -44,7 +44,7 @@ def gdb_base_fixture():
         yield gdb  # Let's yield gdb so we can easily extend the mock
 
 
-@pytest.fixture
+@pytest.fixture()
 def gdb_frame_register_read_fixture(gdb_base_fixture):
     def _read_register(name):
         register = MagicMock()
@@ -62,18 +62,18 @@ def gdb_frame_register_read_fixture(gdb_base_fixture):
         return read_reg_mock
 
     gdb_base_fixture.newest_frame = _newest_frame
-    yield gdb_base_fixture
+    return gdb_base_fixture
 
 
-@pytest.fixture
+@pytest.fixture()
 def gdb_with_inferior_fixure(gdb_frame_register_read_fixture):
     inferior = MagicMock()
     inferior.threads.return_value = [MagicMock()]
     gdb_frame_register_read_fixture.selected_inferior.return_value = inferior
-    yield gdb_frame_register_read_fixture  # Let's yield gdb so we can easily extend the mock
+    return gdb_frame_register_read_fixture  # Let's return gdb so we can easily extend the mock
 
 
-@pytest.fixture
+@pytest.fixture()
 def http_expect_request():
     http = MagicMock()
     connections = []
@@ -143,7 +143,7 @@ TEST_HW_VERSION = "DEVBOARD"
 TEST_PROJECT_KEY = "7f083342d30444b2b3bed65357f24a19"
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_config(gdb_base_fixture):
     """Updates MEMFAULT_CONFIG to contain TEST_... values"""
     from memfault_gdb import MEMFAULT_CONFIG
@@ -195,7 +195,7 @@ TEST_MAINTENANCE_INFO_SECTIONS_FIXTURE_FMT = """Exec file:
 """
 
 
-@pytest.fixture
+@pytest.fixture()
 def fake_elf():
     with NamedTemporaryFile() as fake_elf:
         fake_elf.write(b"ELF")
@@ -203,13 +203,13 @@ def fake_elf():
         yield fake_elf
 
 
-@pytest.fixture
+@pytest.fixture()
 def maintenance_info_sections_fixture(fake_elf):
     return TEST_MAINTENANCE_INFO_SECTIONS_FIXTURE_FMT.format(fake_elf.name)
 
 
 # Data from a GDB Server with register names that differ from the final names we use
-@pytest.fixture
+@pytest.fixture()
 def info_reg_all_fixture(fake_elf):
     return """
 r0             0x0	0
@@ -238,7 +238,7 @@ PSP            0x200046c8	536889032
 """
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def settings_fixture(gdb_for_coredump):
     from memfault_gdb import MEMFAULT_CONFIG, settings_save
 
@@ -247,20 +247,20 @@ def settings_fixture(gdb_for_coredump):
         yield settings_save
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def settings_coredump_allowed(settings_fixture):
-    yield settings_fixture({"coredump.allow": True})
+    return settings_fixture({"coredump.allow": True})
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def settings_coredump_disallowed(settings_fixture):
-    yield settings_fixture({"coredump.allow": False})
+    return settings_fixture({"coredump.allow": False})
 
 
 # We save the time in the coredump generated so each run of "memfault coredump" looks unique
 # Let's monkeypatch time so we get a reproducible time in out unit tests
-@pytest.fixture(scope="function", autouse=True)
-def patch_datetime_now(monkeypatch):
+@pytest.fixture(autouse=True)
+def _patch_datetime_now(monkeypatch):
     import time
 
     def overriden_wrapped_time():
@@ -335,11 +335,11 @@ def test_armv7_get_used_ram_base_addresses(gdb_base_fixture):
         Section(0xE0000000, 10, "", read_only=True),
     )
 
-    COLLECTION_SIZE_ARM = 1 * 1024 * 1024  # 1MB
+    collection_size_arm = 1 * 1024 * 1024  # 1MB
     assert [
-        (0x20000000, COLLECTION_SIZE_ARM),
-        (0x60000000, COLLECTION_SIZE_ARM),
-        (0x80000000, COLLECTION_SIZE_ARM),
+        (0x20000000, collection_size_arm),
+        (0x60000000, collection_size_arm),
+        (0x80000000, collection_size_arm),
     ] == ArmCortexMCoredumpArch().guess_ram_regions(sections)
 
 
@@ -428,7 +428,7 @@ def test_http_basic_auth(gdb_base_fixture):
     }
 
 
-@pytest.fixture
+@pytest.fixture()
 def gdb_for_coredump(gdb_with_inferior_fixure, maintenance_info_sections_fixture):
     import gdb
 
@@ -449,7 +449,7 @@ def gdb_for_coredump(gdb_with_inferior_fixure, maintenance_info_sections_fixture
         return b"A" * size  # Write 41 'A' for reads to memory regions
 
     inferior.read_memory = _read_memory
-    yield gdb
+    return gdb
 
 
 def test_coredump_command_no_target(gdb_base_fixture, capsys, settings_coredump_allowed):
@@ -523,8 +523,11 @@ def test_coredump_command_not_allowing(
 
 
 @pytest.mark.parametrize(
-    "expected_result,extra_cmd_args,expected_coredump_fn",
-    [(None, "", "fixture2.bin"), (None, "-r 0x600000 8 -r 0x800000 4", "fixture3.bin")],
+    ("expected_result", "extra_cmd_args", "expected_coredump_fn"),
+    [
+        (None, "", "fixture2.bin"),
+        (None, "-r 0x600000 8 -r 0x800000 4", "fixture3.bin"),
+    ],
 )
 def test_coredump_command_with_login_no_existing_release_or_symbols(
     gdb_for_coredump,
@@ -671,33 +674,19 @@ def test_login_command_with_all_options(gdb_base_fixture, http_expect_request):
     assert MEMFAULT_CONFIG.ingress_uri == test_ingress_uri
 
 
-def test_login_command_try(gdb_base_fixture, http_expect_request):
-    from memfault_gdb import MEMFAULT_CONFIG, MemfaultLogin
-
-    http_expect_request(
-        "https://api.try.memfault.com/auth/me", "GET", None, TEST_AUTH_HEADERS, 200, {"id": 123}
-    )
-
-    login = MemfaultLogin()
-    login.invoke("{} {} --try-me".format(TEST_EMAIL, TEST_PASSWORD), True)
-
-    assert MEMFAULT_CONFIG.email == TEST_EMAIL
-    assert MEMFAULT_CONFIG.password == TEST_PASSWORD
-    assert MEMFAULT_CONFIG.organization is None
-    assert MEMFAULT_CONFIG.project is None
-    assert MEMFAULT_CONFIG.api_uri == "https://api.try.memfault.com"
-    assert MEMFAULT_CONFIG.ingress_uri == "https://ingress.try.memfault.com"
-
-
 @pytest.mark.parametrize(
-    "expected_result,resp_status,resp_body",
+    ("expected_result", "resp_status", "resp_body"),
     [
         (
             True,
             200,
-            {"data": {"artifacts": [{"type": "symbols", "hardware_version": TEST_HW_VERSION}]}},
+            {"data": {"symbol_file": {"downloadable": True}}},
         ),
-        (False, 200, {"data": {"artifacts": []}}),
+        (
+            False,
+            200,
+            {"data": {}},
+        ),
         (False, 404, None),
     ],
 )
@@ -728,15 +717,15 @@ def test_has_uploaded_symbols(
 def test_post_chunk_data(gdb_base_fixture, http_expect_request):
     from memfault_gdb import _post_chunk_data
 
-    BASE_URI = "https://example.chunks.memfault.com"
-    CHUNK_DATA = bytearray([1, 2, 3, 4])
-    DEVICE_SERIAL = "GDB_TESTSERIAL"
+    base_uri = "https://example.chunks.memfault.com"
+    chunk_data = bytearray([1, 2, 3, 4])
+    device_serial = "GDB_TESTSERIAL"
 
     def _check_request_body(body_bytes):
-        assert body_bytes.hex() == CHUNK_DATA.hex(), body_bytes
+        assert body_bytes.hex() == chunk_data.hex(), body_bytes
 
     http_expect_request(
-        "{}/api/v0/chunks/GDB_TESTSERIAL".format(BASE_URI),
+        "{}/api/v0/chunks/GDB_TESTSERIAL".format(base_uri),
         "POST",
         _check_request_body,
         {"Content-Type": "application/octet-stream", "Memfault-Project-Key": TEST_PROJECT_KEY},
@@ -745,5 +734,5 @@ def test_post_chunk_data(gdb_base_fixture, http_expect_request):
     )
 
     _post_chunk_data(
-        CHUNK_DATA, project_key=TEST_PROJECT_KEY, chunks_uri=BASE_URI, device_serial=DEVICE_SERIAL
+        chunk_data, project_key=TEST_PROJECT_KEY, chunks_uri=base_uri, device_serial=device_serial
     )

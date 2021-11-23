@@ -87,6 +87,17 @@ bool memfault_cbor_encode_unsigned_integer(sMemfaultCborEncoder *encoder, uint32
 //! Same as "memfault_cbor_encode_unsigned_integer" but store an unsigned integer instead
 bool memfault_cbor_encode_signed_integer(sMemfaultCborEncoder *encoder, int32_t value);
 
+//! Adds pre-encoded cbor data to the current encoder
+//!
+//! @param encoder The encoder context to use
+//! @param cbor_data The pre-encoded data to add to the current context
+//! @param cbor_data_len The length of the pre-encoded data
+//!
+//! @note Care must be taken by the end user to ensure the data being joined into the current
+//! encoding creates a valid cbor entry when combined. This utility can helpful, for example, when
+//! adding a value to a cbor dictionary/map which is a cbor record itself.
+bool memfault_cbor_join(sMemfaultCborEncoder *encoder, const void *cbor_data, size_t cbor_data_len);
+
 //! Called to encode an arbitrary binary payload
 //!
 //! @param encoder The encoder context to use
@@ -112,24 +123,20 @@ bool memfault_cbor_encode_string(sMemfaultCborEncoder *encoder, const char *str)
 //!
 //! @return true on success, false otherwise
 //!
-//! @note Use one or more calls to memfault_cbor_encode_string_add() to write the contents
+//! @note Use one or more calls to memfault_cbor_join() to write the contents
 //! of the string.
 bool memfault_cbor_encode_string_begin(sMemfaultCborEncoder *encoder, size_t str_len);
 
-//! Called to encode the given C string to the string started with
-//! memfault_cbor_encode_string_begin().
-//!
-//! @note Can be called one or multiple times after calling memfault_cbor_encode_string_begin().
-//! It is the responsibililty of the caller to ensure that the total number of bytes added matches
-//! the str_len that was passed to memfault_cbor_encode_string_begin().
-//! @note It is not expected to add the NULL terminator.
+//! Called to start the encoding of an arbitrary binary payload
 //!
 //! @param encoder The encoder context to use
-//! @param str The string to add
-//! @param len The number of bytes to add from str
+//! @param buf_len The length of the binary payload to store in bytes, excluding NULL terminator.
 //!
 //! @return true on success, false otherwise
-bool memfault_cbor_encode_string_add(sMemfaultCborEncoder *encoder, const char *str, size_t len);
+//!
+//! @note Use one or more calls to memfault_cbor_join() to write the contents
+//! of the string.
+bool memfault_cbor_encode_byte_string_begin(sMemfaultCborEncoder *encoder, size_t bin_len);
 
 //! Encodes a IEEE 754 double-precision float that is packed in a uint64_t
 //!
